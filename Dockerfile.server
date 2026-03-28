@@ -1,0 +1,18 @@
+# ── YouTube Tracker – Backend Server ──────────────────────────────
+FROM node:20-alpine
+
+WORKDIR /app
+
+# 1. Copy dependency manifest & install (cached layer)
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev
+
+# 2. Copy application source
+COPY index.js ./
+COPY server/ ./server/
+
+# 3. Expose API port
+EXPOSE 5000
+
+# 4. Start the server
+CMD ["node", "index.js"]

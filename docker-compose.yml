@@ -1,0 +1,68 @@
+# ── YouTube Tracker – Docker Compose ──────────────────────────────
+# Chạy: docker compose up --build
+# Truy cập: Dashboard http://localhost:3000 | API http://localhost:5000
+
+services:
+  # ── Redis Cache ────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # ── InfluxDB v3 Core (Time-series DB) ──────────────────────────
+  influxdb:
+    image: quay.io/influxdb/influxdb3-core:latest
+    user: "0"
+    ports:
+      - "8181:8181"
+    volumes:
+      - influxdb_data:/data
+    environment:
+      - INFLUXDB3_NODE_ID=docker-node
+    command: ["serve", "--object-store", "file", "--data-dir", "/data", "--node-id", "docker-node"]
+
+  # ── Backend Node.js Server ─────────────────────────────────────
+  server:
+    build:
+      context: .
+      dockerfile: Dockerfile.server
+    ports:
+      - "5000:5000"
+    env_file:
+      - .env
+    environment:
+      # Override DB hosts to Docker service names
+      - INFLUXDB_HOST=http://influxdb:8181
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      redis:
+        condition: service_healthy
+      influxdb:
+        condition: service_started
+    restart: unless-stopped
+
+  # ── Next.js Dashboard ──────────────────────────────────────────
+  dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile.dashboard
+      args:
+        NEXT_PUBLIC_SUPABASE_URL: ${SUPABASE_URL}
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY}
+        NEXT_PUBLIC_API_URL: http://localhost:5000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - server
+    restart: unless-stopped
+
+volumes:
+  redis_data:
+  influxdb_data:

@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>YouTube Tracker Sync</title>
+    <style>
+        body { width: 320px; padding: 15px; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        h2 { color: #4f46e5; margin-top: 0; font-size: 18px; text-align: center; }
+        .status-box { padding: 12px; border-radius: 8px; background-color: #f8fafc; margin-bottom: 15px; border: 1px solid #e2e8f0; text-align: center; }
+        .status-box.active { background-color: #f0fdf4; border-color: #bbf7d0; }
+        .status-box.error { background-color: #fef2f2; border-color: #fecaca; }
+        .btn { display: block; background-color: #4f46e5; color: white; border: none; padding: 10px; border-radius: 6px; cursor: pointer; width: 100%; font-weight: bold; font-size: 14px; text-align: center; text-decoration: none; box-sizing: border-box; }
+        .btn:hover { background-color: #4338ca; }
+        .btn-outline { background-color: white; color: #4f46e5; border: 1px solid #4f46e5; margin-top: 8px; }
+        .btn-outline:hover { background-color: #f8fafc; }
+        p { margin: 5px 0; font-size: 14px; color: #475569; }
+        .email { font-weight: bold; color: #0f172a; word-break: break-all; }
+    </style>
+</head>
+<body>
+    <h2>YouTube Tracker Sync</h2>
+    
+    <div id="loading" class="status-box">Checking Auth Status...</div>
+    
+    <div id="unauth-view" style="display: none;">
+        <div class="status-box error">
+            <p><strong>Tracking Stopped</strong></p>
+            <p>Please log in to your Dashboard.</p>
+        </div>
+        <a href="http://localhost:3000/login" target="_blank" class="btn">Login Now</a>
+    </div>
+
+    <div id="auth-view" style="display: none;">
+        <div class="status-box active">
+            <p><strong>Tracking Active</strong></p>
+            <p id="user-info" class="email">Loading...</p>
+        </div>
+        <a href="http://localhost:3000/dashboard" target="_blank" class="btn">Open Dashboard</a>
+        <button id="forceSync" class="btn btn-outline">Force Auth Sync</button>
+    </div>
+    
+    <script src="popup.js"></script>
+</body>
+</html>

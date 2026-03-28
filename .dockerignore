@@ -1,0 +1,15 @@
+node_modules/
+**/node_modules/
+.git/
+.next/
+**/.next/
+.env
+.env.local
+*.log
+*.pem
+*.crx
+~
+extension.pem
+extension.crx
+docs/
+model/
