@@ -72,3 +72,30 @@ export const fetchRecommend = async () => {
     throw error;
   }
 }
+
+export const fetchMoodWeekly = async () => {
+  try {
+    const res = await api.get('/stats/mood-weekly')
+    return res.data
+  } catch (error: any) {
+    if (error.response?.data?.message) {
+      console.error("[Backend /stats/mood-weekly Error]:", error.response.data.message);
+      throw new Error(error.response.data.message);
+    }
+    throw error;
+  }
+}
+
+export const fetchWeeklyInsights = async () => {
+  try {
+    const res = await api.get('/insights/weekly')
+    return res.data
+  } catch (error: any) {
+    if (error.response?.data?.message) {
+      console.error("[Backend /insights/weekly Error]:", error.response.data.message);
+      throw new Error(error.response.data.message);
+    }
+    throw error;
+  }
+}
+

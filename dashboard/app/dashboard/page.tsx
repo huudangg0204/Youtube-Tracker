@@ -1,20 +1,23 @@
 "use client";
 
 import { useEffect, useState, useCallback } from 'react';
-import { fetchHistory, fetchStats } from '@/lib/api';
+import { fetchHistory, fetchStats, fetchMoodWeekly } from '@/lib/api';
 import TimeChart from '@/components/charts/TimeChart';
 import SkipRateChart from '@/components/charts/SkipRateChart';
 import ContextPieChart from '@/components/charts/ContextPieChart';
+import MoodChart from '@/components/charts/MoodChart';
 import HistoryTable from '@/components/history/HistoryTable';
 import NowPlayingCard from '@/components/dashboard/NowPlayingCard';
 import TotalPlaytimeCard from '@/components/dashboard/TotalPlaytimeCard';
 import TopVideosCard from '@/components/dashboard/TopVideosCard';
+import WeeklyInsightsBanner from '@/components/dashboard/WeeklyInsightsBanner';
 import { useSocket } from '@/hooks/useSocket';
 import { createClient } from '@/lib/supabase/client';
 
 export default function DashboardPage() {
   const [history, setHistory] = useState<any[]>([]);
   const [stats, setStats] = useState<any>(null);
+  const [moodData, setMoodData] = useState<any[]>([]);
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [liveEvent, setLiveEvent] = useState<any>(null);
@@ -31,12 +34,14 @@ export default function DashboardPage() {
 
   const loadData = useCallback(async () => {
     try {
-      const [histRes, statsRes] = await Promise.all([
+      const [histRes, statsRes, moodRes] = await Promise.all([
         fetchHistory(),
-        fetchStats()
+        fetchStats(),
+        fetchMoodWeekly().catch(() => ({ data: [] })),
       ]);
       setHistory(histRes.data || []);
       setStats(statsRes.data || null);
+      setMoodData(moodRes.data || []);
     } catch (err) {
       console.error(err);
     } finally {
@@ -85,6 +90,9 @@ export default function DashboardPage() {
         <p className="text-slate-500">Deep tracking metrics, context analysis, and live playbacks</p>
       </div>
 
+      {/* Weekly Insights Banner — tự fetch data riêng, không block dashboard */}
+      <WeeklyInsightsBanner />
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <NowPlayingCard liveEvent={liveEvent} />
       </div>
@@ -102,6 +110,11 @@ export default function DashboardPage() {
           <SkipRateChart skipRate={stats?.skip_rate || 0} />
           <ContextPieChart data={stats?.context_distribution || []} />
         </div>
+      </div>
+
+      {/* Mood Stacked Bar Chart */}
+      <div className="grid grid-cols-1 gap-6">
+        <MoodChart data={moodData} />
       </div>
 
       <div className="grid grid-cols-1 gap-6">

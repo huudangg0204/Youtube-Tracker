@@ -335,6 +335,88 @@ app.get('/stats', authMiddleware, async (req, res) => {
 });
 
 /**
+ * GET /stats/mood-weekly
+ * Phân bổ mood theo ngày trong 7 ngày gần nhất.
+ * Dùng cho biểu đồ cột xếp chồng (Stacked Bar Chart).
+ */
+app.get('/stats/mood-weekly', authMiddleware, async (req, res) => {
+  try {
+    const influx = getInfluxClient();
+    const database = process.env.INFLUXDB_DATABASE;
+    const userId = req.userId;
+
+    // 1. Query InfluxDB: lấy tất cả track_completed events trong 7 ngày
+    const moodQuery = `
+      SELECT video_id, time
+      FROM playback_events
+      WHERE user_id = '${userId}'
+        AND event_type = 'track_completed'
+        AND time > now() - interval '7 days'
+      ORDER BY time ASC
+    `;
+
+    const rows = [];
+    const result = await influx.query(moodQuery, database);
+    for await (const row of result) {
+      rows.push({ videoId: row.video_id, time: row.time });
+    }
+
+    // 2. Lấy mood từ Supabase track_metadata (Last.fm enriched)
+    const uniqueVideoIds = [...new Set(rows.map(r => r.videoId))];
+    let moodMap = {};
+
+    if (uniqueVideoIds.length > 0) {
+      const { createClient } = require('@supabase/supabase-js');
+      const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY);
+      const { data: moodData } = await supabase
+        .from('track_metadata')
+        .select('video_id, mood')
+        .in('video_id', uniqueVideoIds);
+
+      if (moodData) {
+        moodData.forEach(m => { moodMap[m.video_id] = m.mood || 'Unknown'; });
+      }
+    }
+
+    // 3. Tạo 7 ngày (hôm nay lùi về 6 ngày trước)
+    const dayLabels = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+    const days = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      d.setHours(0, 0, 0, 0);
+      const dateStr = d.toISOString().split('T')[0]; // YYYY-MM-DD
+      days.push({
+        date: dateStr,
+        day_label: dayLabels[d.getDay()],
+        moods: {},
+        total: 0,
+      });
+    }
+
+    // 4. Map mỗi event vào day + mood
+    const dayMap = {};
+    days.forEach(d => { dayMap[d.date] = d; });
+
+    for (const row of rows) {
+      const eventDate = new Date(row.time);
+      const dateStr = eventDate.toISOString().split('T')[0];
+      const dayEntry = dayMap[dateStr];
+      if (!dayEntry) continue;
+
+      const mood = moodMap[row.videoId] || 'Unknown';
+      dayEntry.moods[mood] = (dayEntry.moods[mood] || 0) + 1;
+      dayEntry.total += 1;
+    }
+
+    return res.status(200).json({ data: days });
+  } catch (error) {
+    console.error('[/stats/mood-weekly] Error:', error.message);
+    return res.status(500).json({ error: 'Internal server error', message: error.message });
+  }
+});
+
+/**
  * GET /history/daily
  * Lấy lịch sử nghe nhạc trong ngày (tổng hợp ms_played và play_count).
  */
@@ -477,9 +559,62 @@ app.get('/recommend', authMiddleware, async (req, res) => {
   }
 });
 
+/**
+ * GET /insights/weekly
+ * On-Demand Weekly Wrapped Insights.
+ * Check DB → return nhanh nếu có → generate + save + return nếu chưa có.
+ */
+app.get('/insights/weekly', authMiddleware, async (req, res) => {
+  try {
+    const { getOrGenerateWeeklyInsight } = require('./services/insightsService');
+    const result = await getOrGenerateWeeklyInsight(req.userId);
+    return res.status(200).json({ data: result });
+  } catch (error) {
+    console.error('[/insights/weekly] Error:', error.message);
+    return res.status(500).json({ error: 'Internal server error', message: error.message });
+  }
+});
+
+// ─── Cron: Weekly Insights Batch (Backup) ──────────────────────────────────────
+// Chạy vào 00:00 sáng thứ Hai hàng tuần — pre-generate cho active users
+const cron = require('node-cron');
+cron.schedule('0 0 * * 1', async () => {
+  console.log('[Cron] Weekly Insights batch job triggered at', new Date().toISOString());
+  try {
+    const influx = getInfluxClient();
+    const database = process.env.INFLUXDB_DATABASE;
+
+    // Lấy danh sách user_ids đã active trong tuần trước
+    const usersQuery = `
+      SELECT DISTINCT user_id FROM playback_events
+      WHERE time > now() - interval '7 days' AND event_type = 'play'
+    `;
+    const activeUserIds = [];
+    const result = await influx.query(usersQuery, database);
+    for await (const row of result) activeUserIds.push(row.user_id);
+
+    console.log(`[Cron] Found ${activeUserIds.length} active users for weekly insights`);
+
+    const { getOrGenerateWeeklyInsight } = require('./services/insightsService');
+    for (const userId of activeUserIds) {
+      try {
+        await getOrGenerateWeeklyInsight(userId);
+        console.log(`[Cron] Generated insight for user=${userId}`);
+      } catch (err) {
+        console.error(`[Cron] Failed for user=${userId}:`, err.message);
+      }
+    }
+
+    console.log('[Cron] Weekly Insights batch job completed');
+  } catch (err) {
+    console.error('[Cron] Batch job error:', err.message);
+  }
+});
+
 // ─── Start Server ──────────────────────────────────────────────────────────────
 httpServer.listen(port, () => {
   console.log(`[Server] Running on http://localhost:${port}`);
   console.log(`[Server] WebSocket ready (Socket.IO)`);
   console.log(`[Server] Stack: Express + Socket.IO + InfluxDB v3 Core + Supabase Auth + Redis`);
+  console.log(`[Server] Cron: Weekly Insights batch at 00:00 every Monday`);
 });

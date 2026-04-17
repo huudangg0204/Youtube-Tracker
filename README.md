@@ -80,7 +80,7 @@ Dữ liệu được hiển thị trên **Dashboard Analytics** real-time với 
 Youtube_Tracker/
 ├── .env                          # Biến môi trường (tokens, keys, DB config)
 ├── index.js                      # Entry point: require server/src/index.js
-├── setup_supabase.sql            # Script tạo bảng videos trên Supabase
+├── init.sql                      # Script khởi tạo toàn bộ database schema (videos, track_metadata, weekly_insights)
 ├── start_influxdbserver.bat      # Script khởi động InfluxDB local
 │
 ├── extension/                    # ── CHROME EXTENSION (MANIFEST V3) ──
@@ -146,7 +146,7 @@ Cách nhanh nhất để khởi chạy toàn bộ hệ thống cho dev mới:
 
 ### Yêu cầu
 - **Docker** & **Docker Compose** đã cài đặt
-- **Supabase Project** (cloud) – Tạo tại [supabase.com](https://supabase.com) và chạy `setup_supabase.sql`
+- **Supabase Project** (cloud) – Tạo tại [supabase.com](https://supabase.com) và chạy `init.sql`
 
 ### Khởi chạy
 
@@ -195,7 +195,7 @@ docker compose restart server
 | **Node.js** | - | v18+ |
 | **InfluxDB v3 Core** | `http://localhost:8181` | Chạy `start_influxdbserver.bat` hoặc cài riêng |
 | **Redis** | `redis://localhost:6379` | Cài Redis Server hoặc dùng Docker |
-| **Supabase Project** | Cloud | Tạo project tại [supabase.com](https://supabase.com), chạy `setup_supabase.sql` |
+| **Supabase Project** | Cloud | Tạo project tại [supabase.com](https://supabase.com), chạy `init.sql` |
 
 ### Bước 1: Backend Server
 

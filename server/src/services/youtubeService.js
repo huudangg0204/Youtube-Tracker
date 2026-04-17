@@ -45,6 +45,12 @@ async function getRichMetadataAndPersist(videoId) {
       console.error('[YoutubeService] Supabase insert error:', error.message);
     } else {
       console.log(`[Supabase] Metadata ingested for AI Dataset: ${videoId} (${title})`);
+
+      // Fire & Forget: Enrich audio features (mood, genre) qua Deezer + ReccoBeats
+      const { enrichVideoAudioFeatures } = require('./musicMetadataService');
+      enrichVideoAudioFeatures(videoId, title, channelTitle).catch(err => {
+        console.warn('[MusicMeta] Enrichment failed (non-blocking):', err.message);
+      });
     }
   } catch (error) {
     console.warn('[YoutubeService] Ignore error ingesting rich metadata:', error.message);
